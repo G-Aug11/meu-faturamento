@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Clientes · Meu Faturamento</title>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar__logo-wrap" title="Clique para trocar logo">
+      <div id="logo-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <span style="font-size:38px;">💈</span>
+        <span style="font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold-light);text-align:center;line-height:1.3;">Rick Barber<br>Original</span>
+      </div>
+      <div class="logo-overlay">📷<br>Trocar logo</div>
+      <input type="file" id="input-logo" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
+    </div>
+    <nav class="sidebar__nav">
+      <a href="index.html">    <span class="nav-icon">🏠</span><span class="nav-label">Atender</span></a>
+      <a href="clientes.html"> <span class="nav-icon">👥</span><span class="nav-label">Clientes</span></a>
+      <a href="historico.html"><span class="nav-icon">📋</span><span class="nav-label">Histórico</span></a>
+      <a href="servicos.html"> <span class="nav-icon">✂️</span><span class="nav-label">Serviços</span></a>
+      <a href="dashboard.html"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+    </nav>
+    <button onclick="logout()" style="margin-top:auto;margin-bottom:8px;background:transparent;color:rgba(255,255,255,.35);font-family:Rajdhani,sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 12px;cursor:pointer;transition:all .2s;" onmouseover="this.style.color='var(--gold-light)'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🚪 Sair</button>
+    <div class="sidebar__version">v3.0 Java · Rick Barber</div>
+  </aside>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">👥 Clientes</h1>
+      <button class="btn btn-gold" id="btn-novo">+ Novo Cliente</button>
+    </div>
+    <div class="filtros">
+      <div class="form-group">
+        <label>Buscar</label>
+        <input type="text" id="busca" placeholder="Nome ou telefone…" style="min-width:260px;"/>
+      </div>
+      <button class="btn btn-secondary" id="btn-buscar">🔍 Buscar</button>
+    </div>
+    <div class="tabela-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Nome</th><th>Telefone</th><th>Observação</th><th>Cadastrado em</th><th>Ações</th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-light);">Carregando…</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal-cli">
+  <div class="modal">
+    <div class="modal__title" id="modal-titulo">Novo Cliente</div>
+    <input type="hidden" id="cli-edit-id"/>
+    <div class="form-group"><label>Nome *</label><input type="text" id="cli-nome" placeholder="Nome completo"/></div>
+    <div class="form-group"><label>Telefone</label><input type="text" id="cli-tel" placeholder="(11) 99999-9999"/></div>
+    <div class="form-group"><label>Observação</label><textarea id="cli-obs" rows="2" placeholder="Ex: cliente preferencial…"></textarea></div>
+    <div style="display:flex;gap:12px;">
+      <button class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+      <button class="btn btn-gold" id="btn-salvar" style="flex:1;">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>if(!sessionStorage.getItem("auth_token")){window.location.href="login.html";}</script>
+<script>
+async function carregar(busca) {
+  busca = busca || '';
+  var data = await apiGet('/clientes', busca ? {busca:busca} : {});
+  var lista = Array.isArray(data) ? data : [];
+  var tbody = document.getElementById('tbody');
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-light);">Nenhum cliente encontrado.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = lista.map(function(c) {
+    return '<tr>' +
+      '<td>' + c.id + '</td>' +
+      '<td><strong>' + c.nome + '</strong></td>' +
+      '<td>' + (c.telefone || '—') + '</td>' +
+      '<td>' + (c.observacao || '—') + '</td>' +
+      '<td>' + formatData(c.criadoEm) + '</td>' +
+      '<td>' +
+        '<button class="btn btn-secondary btn-sm" onclick="editar(' + c.id + ',\'' + c.nome.replace(/'/g,"\\'") + '\',\'' + (c.telefone||'').replace(/'/g,"\\'") + '\',\'' + (c.observacao||'').replace(/'/g,"\\'") + '\')">✏️ Editar</button> ' +
+        '<button class="btn btn-danger btn-sm" onclick="excluir(' + c.id + ')">🗑</button>' +
+      '</td></tr>';
+  }).join('');
+}
+
+function fecharModal() {
+  document.getElementById('modal-cli').classList.remove('open');
+  document.getElementById('cli-edit-id').value = '';
+  document.getElementById('cli-nome').value = '';
+  document.getElementById('cli-tel').value = '';
+  document.getElementById('cli-obs').value = '';
+}
+
+function editar(id, nome, tel, obs) {
+  document.getElementById('cli-edit-id').value = id;
+  document.getElementById('cli-nome').value = nome;
+  document.getElementById('cli-tel').value = tel;
+  document.getElementById('cli-obs').value = obs;
+  document.getElementById('modal-titulo').textContent = 'Editar Cliente';
+  document.getElementById('modal-cli').classList.add('open');
+}
+
+async function excluir(id) {
+  if (!confirm('Remover este cliente?')) return;
+  var r = await apiDelete('/clientes/' + id);
+  toast(r.mensagem || r.erro || 'Erro', r.erro ? 'erro' : 'sucesso');
+  carregar();
+}
+
+document.getElementById('btn-novo').addEventListener('click', function() {
+  document.getElementById('modal-titulo').textContent = 'Novo Cliente';
+  document.getElementById('modal-cli').classList.add('open');
+});
+document.getElementById('btn-cancelar').addEventListener('click', fecharModal);
+document.getElementById('modal-cli').addEventListener('click', function(e){ if(e.target===e.currentTarget) fecharModal(); });
+document.getElementById('btn-buscar').addEventListener('click', function(){ carregar(document.getElementById('busca').value.trim()); });
+document.getElementById('busca').addEventListener('keydown', function(e){ if(e.key==='Enter') carregar(document.getElementById('busca').value.trim()); });
+
+document.getElementById('btn-salvar').addEventListener('click', async function() {
+  var id = document.getElementById('cli-edit-id').value;
+  var nome = document.getElementById('cli-nome').value.trim();
+  if (!nome) { toast('Nome é obrigatório.', 'erro'); return; }
+  var body = { nome:nome, telefone:document.getElementById('cli-tel').value.trim(), observacao:document.getElementById('cli-obs').value.trim() };
+  var r = id ? await apiPut('/clientes/' + id, body) : await apiPost('/clientes', body);
+  toast(r.mensagem || r.erro || 'Erro', r.erro ? 'erro' : 'sucesso');
+  if (!r.erro) { fecharModal(); carregar(); }
+});
+
+carregar();
+</script>
+</body>
+</html>

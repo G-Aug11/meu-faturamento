@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard · Meu Faturamento</title>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+  <style>
+    .section-title{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;letter-spacing:1.2px;color:var(--text-mid);margin:24px 0 12px;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+    .section-title::after{content:'';flex:1;height:1px;background:var(--card-border);}
+    .bar-chart-wrap{background:var(--card-bg);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-sm);border:1px solid var(--card-border);}
+    .bar-chart{display:flex;align-items:flex-end;gap:10px;height:130px;}
+    .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;}
+    .bar-val{font-size:10px;font-weight:700;color:var(--gold);white-space:nowrap;}
+    .bar-rect{width:100%;background:var(--sidebar-bg);border-radius:4px 4px 0 0;min-height:4px;transition:height .5s ease;}
+    .bar-rect.hoje{background:var(--gold);}
+    .bar-label{font-size:10px;color:var(--text-light);white-space:nowrap;margin-top:4px;}
+    .formas-wrap{display:flex;gap:12px;flex-wrap:wrap;}
+    .forma-card{background:var(--card-bg);border-radius:var(--radius);padding:14px 20px;box-shadow:var(--shadow-sm);border:1px solid var(--card-border);min-width:140px;border-left:3px solid var(--gold);}
+    .forma-nome{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-light);font-weight:700;}
+    .forma-val{font-family:'Bebas Neue',cursive;font-size:28px;color:var(--sidebar-bg);}
+    .forma-qtd{font-size:11px;color:var(--text-light);}
+    .top-list{display:flex;flex-direction:column;gap:8px;}
+    .top-item{background:var(--card-bg);border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow-sm);border:1px solid var(--card-border);display:flex;align-items:center;gap:12px;}
+    .top-rank{font-family:'Bebas Neue',cursive;font-size:24px;color:var(--gold);width:28px;flex-shrink:0;}
+    .top-info{flex:1;}
+    .top-nome{font-weight:600;font-size:14px;}
+    .top-qtd{font-size:12px;color:var(--text-light);}
+    .top-val{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--green);}
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar__logo-wrap" title="Clique para trocar logo">
+      <div id="logo-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <span style="font-size:38px;">💈</span>
+        <span style="font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold-light);text-align:center;line-height:1.3;">Rick Barber<br>Original</span>
+      </div>
+      <div class="logo-overlay">📷<br>Trocar logo</div>
+      <input type="file" id="input-logo" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
+    </div>
+    <nav class="sidebar__nav">
+      <a href="index.html">    <span class="nav-icon">🏠</span><span class="nav-label">Atender</span></a>
+      <a href="clientes.html"> <span class="nav-icon">👥</span><span class="nav-label">Clientes</span></a>
+      <a href="historico.html"><span class="nav-icon">📋</span><span class="nav-label">Histórico</span></a>
+      <a href="servicos.html"> <span class="nav-icon">✂️</span><span class="nav-label">Serviços</span></a>
+      <a href="dashboard.html"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+    </nav>
+    <button onclick="logout()" style="margin-top:auto;margin-bottom:8px;background:transparent;color:rgba(255,255,255,.35);font-family:Rajdhani,sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 12px;cursor:pointer;transition:all .2s;" onmouseover="this.style.color='var(--gold-light)'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🚪 Sair</button>
+    <div class="sidebar__version">v3.0 Java · Rick Barber</div>
+  </aside>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">📊 Dashboard</h1>
+      <button class="btn btn-secondary" onclick="carregar()">↻ Atualizar</button>
+    </div>
+    <div class="dash-cards">
+      <div class="dash-card"><div class="dash-card__label">💰 Hoje – Faturamento</div><div class="dash-card__value green" id="d-hoje-total">—</div></div>
+      <div class="dash-card"><div class="dash-card__label">✂️ Hoje – Atendimentos</div><div class="dash-card__value" id="d-hoje-qtd">—</div></div>
+      <div class="dash-card"><div class="dash-card__label">💰 Mês – Faturamento</div><div class="dash-card__value green" id="d-mes-total">—</div></div>
+      <div class="dash-card"><div class="dash-card__label">✂️ Mês – Atendimentos</div><div class="dash-card__value" id="d-mes-qtd">—</div></div>
+    </div>
+    <div class="section-title">📈 Últimos 7 dias</div>
+    <div class="bar-chart-wrap"><div class="bar-chart" id="bar-chart"><div style="color:var(--text-light);font-size:13px;width:100%;text-align:center;">Carregando…</div></div></div>
+    <div class="section-title">💳 Formas de Pagamento (mês)</div>
+    <div class="formas-wrap" id="formas-wrap"><div style="color:var(--text-light);font-size:13px;">Carregando…</div></div>
+    <div class="section-title">🏆 Serviços mais realizados</div>
+    <div class="top-list" id="top-list"><div style="color:var(--text-light);font-size:13px;">Carregando…</div></div>
+  </main>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>if(!sessionStorage.getItem("auth_token")){window.location.href="login.html";}</script>
+<script>
+var FORMAS = { dinheiro:'💵 Dinheiro', pix:'⚡ Pix', cartao_debito:'💳 Débito', cartao_credito:'💳 Crédito' };
+var hoje = new Date().toISOString().slice(0,10);
+
+async function carregar() {
+  try {
+    var d = await apiGet('/dashboard');
+    document.getElementById('d-hoje-total').textContent = formatBRL(d.hoje && d.hoje.total ? d.hoje.total : 0);
+    document.getElementById('d-hoje-qtd').textContent   = d.hoje && d.hoje.qtd ? d.hoje.qtd : 0;
+    document.getElementById('d-mes-total').textContent  = formatBRL(d.mes && d.mes.total ? d.mes.total : 0);
+    document.getElementById('d-mes-qtd').textContent    = d.mes && d.mes.qtd ? d.mes.qtd : 0;
+
+    // Gráfico 7 dias
+    var dias = d.ultimos7Dias || [];
+    var barChart = document.getElementById('bar-chart');
+    if (!dias.length) {
+      barChart.innerHTML = '<div style="color:var(--text-light);font-size:13px;width:100%;text-align:center;padding:20px;">Registre atendimentos para ver o gráfico!</div>';
+    } else {
+      var maxVal = Math.max.apply(null, dias.map(function(x){ return Number(x.total); }).concat([1]));
+      barChart.innerHTML = dias.map(function(dia) {
+        var pct = Math.max(Math.round((Number(dia.total)/maxVal)*100), 4);
+        var isHoje = dia.dia === hoje;
+        var dt = new Date(dia.dia + 'T12:00:00');
+        var label = dt.toLocaleDateString('pt-BR', {weekday:'short', day:'2-digit'});
+        return '<div class="bar-col">' +
+          '<div class="bar-val">' + (Number(dia.total) > 0 ? formatBRL(dia.total) : '') + '</div>' +
+          '<div class="bar-rect ' + (isHoje ? 'hoje' : '') + '" style="height:' + pct + '%;"></div>' +
+          '<div class="bar-label">' + label + (isHoje ? ' 🔴' : '') + '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    // Formas
+    var fw = document.getElementById('formas-wrap');
+    var formas = d.formasPag || [];
+    fw.innerHTML = formas.length
+      ? formas.map(function(f) {
+          return '<div class="forma-card">' +
+            '<div class="forma-nome">' + (FORMAS[f.forma] || f.forma) + '</div>' +
+            '<div class="forma-val">' + formatBRL(f.total) + '</div>' +
+            '<div class="forma-qtd">' + f.qtd + ' atendimento' + (f.qtd != 1 ? 's' : '') + '</div>' +
+          '</div>';
+        }).join('')
+      : '<div style="color:var(--text-light);font-size:13px;">Sem pagamentos este mês.</div>';
+
+    // Top serviços
+    var tl = document.getElementById('top-list');
+    var top = d.topServicos || [];
+    tl.innerHTML = top.length
+      ? top.map(function(s, i) {
+          return '<div class="top-item">' +
+            '<div class="top-rank">' + (i+1) + '</div>' +
+            '<div style="font-size:28px;">' + (s.icone || '✂️') + '</div>' +
+            '<div class="top-info">' +
+              '<div class="top-nome">' + s.nome + '</div>' +
+              '<div class="top-qtd">' + s.qtd + ' vez' + (s.qtd != 1 ? 'es' : '') + '</div>' +
+            '</div>' +
+            '<div class="top-val">' + formatBRL(s.total) + '</div>' +
+          '</div>';
+        }).join('')
+      : '<div style="color:var(--text-light);font-size:13px;">Nenhum atendimento ainda.</div>';
+
+  } catch(e) {
+    toast('Erro ao carregar dashboard. Servidor conectado?', 'erro');
+  }
+}
+
+carregar();
+</script>
+</body>
+</html>

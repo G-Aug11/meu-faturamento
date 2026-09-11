@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Atender · Meu Faturamento</title>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar__logo-wrap" title="Clique para trocar logo">
+      <div id="logo-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <span style="font-size:38px;">💈</span>
+        <span style="font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold-light);text-align:center;line-height:1.3;">Rick Barber<br>Original</span>
+      </div>
+      <div class="logo-overlay">📷<br>Trocar logo</div>
+      <input type="file" id="input-logo" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
+    </div>
+    <nav class="sidebar__nav">
+      <a href="index.html">    <span class="nav-icon">🏠</span><span class="nav-label">Atender</span></a>
+      <a href="clientes.html"> <span class="nav-icon">👥</span><span class="nav-label">Clientes</span></a>
+      <a href="historico.html"><span class="nav-icon">📋</span><span class="nav-label">Histórico</span></a>
+      <a href="servicos.html"> <span class="nav-icon">✂️</span><span class="nav-label">Serviços</span></a>
+      <a href="dashboard.html"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+    </nav>
+    <button onclick="logout()" style="margin-top:auto;margin-bottom:8px;background:transparent;color:rgba(255,255,255,.35);font-family:Rajdhani,sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 12px;cursor:pointer;transition:all .2s;" onmouseover="this.style.color='var(--gold-light)'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🚪 Sair</button>
+    <div class="sidebar__version">v3.0 Java · Rick Barber</div>
+  </aside>
+  <main class="main-content">
+    <div class="cliente-header">
+      <div class="info-box">
+        <div class="lbl">Cliente</div>
+        <div class="val" id="nome-display" style="font-size:15px;min-height:22px;">—</div>
+      </div>
+      <div class="info-box">
+        <div class="lbl">Total</div>
+        <div class="val gold" id="total-display">R$ 0,00</div>
+      </div>
+      <button class="btn-add" id="btn-novo" title="Novo atendimento">＋</button>
+    </div>
+    <div class="services-grid" id="services-grid">
+      <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-light);">Carregando serviços…</div>
+    </div>
+    <button class="btn-finalizar" id="btn-finalizar" disabled>✔ Finalizar Atendimento</button>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal__title">💈 Finalizar Atendimento</div>
+    <div class="form-group">
+      <label>Cliente</label>
+      <div class="cliente-dropdown">
+        <div class="cli-row">
+          <input type="text" id="campo-cliente" placeholder="Nome avulso ou busque um cadastrado…" autocomplete="off"/>
+          <button class="btn-ver-cli" id="btn-ver-cli">👥 Clientes</button>
+        </div>
+        <div class="auto-drop" id="auto-drop"></div>
+      </div>
+      <input type="hidden" id="cli-id"/>
+      <div style="font-size:11px;color:var(--text-light);margin-top:4px;">💡 Digite para buscar ou clique em Clientes para listar todos</div>
+    </div>
+    <div class="pedido-resumo" id="pedido-resumo"></div>
+    <div class="form-group">
+      <label>Forma de Pagamento</label>
+      <div class="pagamento-opcoes">
+        <button class="pagamento-btn ativo" data-forma="dinheiro">💵 Dinheiro</button>
+        <button class="pagamento-btn" data-forma="pix">⚡ Pix</button>
+        <button class="pagamento-btn" data-forma="cartao_debito">💳 Débito</button>
+        <button class="pagamento-btn" data-forma="cartao_credito">💳 Crédito</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Observação (opcional)</label>
+      <textarea id="campo-obs" rows="2" placeholder="Ex: desconto, cliente VIP…"></textarea>
+    </div>
+    <div style="display:flex;gap:12px;">
+      <button class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+      <button class="btn btn-gold" id="btn-confirmar" style="flex:1;">✔ Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>if(!sessionStorage.getItem("auth_token")){window.location.href="login.html";}</script>
+<script>
+var servicos = [], selecionados = {}, formaPag = 'dinheiro', cliId = null, todosClientes = [];
+
+async function init() {
+  try {
+    var data = await apiGet('/servicos');
+    servicos = Array.isArray(data) ? data : [];
+  } catch(e) {
+    toast('Servidor Java não conectado! Inicie o Spring Boot.', 'erro');
+    servicos = [];
+  }
+  renderGrid();
+  try {
+    var data2 = await apiGet('/clientes');
+    todosClientes = Array.isArray(data2) ? data2 : [];
+  } catch(e) { todosClientes = []; }
+}
+
+function renderGrid() {
+  var g = document.getElementById('services-grid');
+  if (!servicos.length) {
+    g.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--red);">⚠️ Servidor Java não conectado ou sem serviços cadastrados.</div>';
+    return;
+  }
+  g.innerHTML = servicos.map(function(sv) {
+    return '<div class="service-card" data-id="' + sv.id + '" onclick="toggle(' + sv.id + ')">' +
+      '<div class="service-card__check">✓</div>' +
+      '<div class="service-card__img-wrap"><span class="sv-emoji">' + (sv.icone || '✂️') + '</span></div>' +
+      '<div class="service-card__name">' + sv.nome + '</div>' +
+      '<div class="service-card__price">' + formatBRL(sv.preco) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function toggle(id) {
+  var sv = servicos.find(function(s){ return s.id == id; });
+  var card = document.querySelector('.service-card[data-id="' + id + '"]');
+  if (!sv || !card) return;
+  if (selecionados[id]) { delete selecionados[id]; card.classList.remove('selected'); }
+  else { selecionados[id] = sv; card.classList.add('selected'); }
+  var total = Object.values(selecionados).reduce(function(a,s){ return a + Number(s.preco); }, 0);
+  document.getElementById('total-display').textContent = formatBRL(total);
+  document.getElementById('btn-finalizar').disabled = total === 0;
+}
+
+document.getElementById('btn-novo').addEventListener('click', function() {
+  selecionados = {}; cliId = null;
+  document.querySelectorAll('.service-card').forEach(function(c){ c.classList.remove('selected'); });
+  document.getElementById('nome-display').textContent = '—';
+  document.getElementById('campo-cliente').value = '';
+  document.getElementById('cli-id').value = '';
+  document.getElementById('total-display').textContent = 'R$ 0,00';
+  document.getElementById('btn-finalizar').disabled = true;
+  toast('Novo atendimento!', 'aviso');
+});
+
+document.getElementById('btn-finalizar').addEventListener('click', function() {
+  var total = 0, html = '';
+  Object.values(selecionados).forEach(function(sv) {
+    total += Number(sv.preco);
+    html += '<div class="pedido-resumo__item"><span>' + sv.nome + '</span><span>' + formatBRL(sv.preco) + '</span></div>';
+  });
+  document.getElementById('pedido-resumo').innerHTML = html + '<div class="pedido-resumo__total"><span>TOTAL</span><span>' + formatBRL(total) + '</span></div>';
+  document.getElementById('modal').classList.add('open');
+});
+
+document.getElementById('btn-cancelar').addEventListener('click', function(){ document.getElementById('modal').classList.remove('open'); });
+document.getElementById('modal').addEventListener('click', function(e){ if (e.target === e.currentTarget) document.getElementById('modal').classList.remove('open'); });
+
+document.querySelectorAll('.pagamento-btn').forEach(function(b) {
+  b.addEventListener('click', function() {
+    document.querySelectorAll('.pagamento-btn').forEach(function(x){ x.classList.remove('ativo'); });
+    b.classList.add('ativo'); formaPag = b.dataset.forma;
+  });
+});
+
+var inp = document.getElementById('campo-cliente');
+var drop = document.getElementById('auto-drop');
+
+function renderDrop(lista) {
+  if (!lista.length) {
+    drop.innerHTML = '<div class="auto-empty">Nenhum cliente. <a href="clientes.html" style="color:var(--gold)">Cadastrar →</a></div>';
+  } else {
+    drop.innerHTML = lista.slice(0,20).map(function(c) {
+      return '<div class="auto-item" data-id="' + c.id + '" data-nome="' + c.nome + '">' +
+        '<div class="auto-avatar">' + c.nome.charAt(0).toUpperCase() + '</div>' +
+        '<span class="auto-nome">' + c.nome + '</span>' +
+        '<span class="auto-tel">' + (c.telefone || '') + '</span></div>';
+    }).join('');
+    drop.querySelectorAll('.auto-item').forEach(function(el) {
+      el.addEventListener('click', function() {
+        inp.value = el.dataset.nome;
+        document.getElementById('nome-display').textContent = el.dataset.nome;
+        cliId = el.dataset.id;
+        document.getElementById('cli-id').value = el.dataset.id;
+        drop.style.display = 'none';
+      });
+    });
+  }
+  drop.style.display = 'block';
+}
+
+inp.addEventListener('input', function() {
+  var q = inp.value.trim().toLowerCase();
+  document.getElementById('nome-display').textContent = inp.value || '—';
+  cliId = null; document.getElementById('cli-id').value = '';
+  if (!q) { drop.style.display = 'none'; return; }
+  renderDrop(todosClientes.filter(function(c){ return c.nome.toLowerCase().includes(q) || (c.telefone||'').includes(q); }));
+});
+
+document.getElementById('btn-ver-cli').addEventListener('click', function() {
+  drop.style.display !== 'none' ? drop.style.display = 'none' : renderDrop(todosClientes);
+});
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.cliente-dropdown') && !e.target.closest('#btn-ver-cli')) drop.style.display = 'none';
+});
+
+document.getElementById('btn-confirmar').addEventListener('click', async function() {
+  var ids = Object.keys(selecionados).map(Number);
+  if (!ids.length) { toast('Selecione ao menos um serviço.', 'erro'); return; }
+  var btn = document.getElementById('btn-confirmar');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  try {
+    var r = await apiPost('/atendimentos', {
+      clienteId: cliId ? Number(cliId) : null,
+      nomeAvulso: cliId ? '' : inp.value.trim(),
+      servicoIds: ids,
+      formaPagamento: formaPag,
+      observacao: document.getElementById('campo-obs').value.trim()
+    });
+    if (r.erro) { toast(r.erro, 'erro'); return; }
+    toast('Atendimento #' + r.atendimentoId + ' salvo! ' + formatBRL(r.total));
+    selecionados = {}; cliId = null;
+    document.querySelectorAll('.service-card').forEach(function(c){ c.classList.remove('selected'); });
+    document.getElementById('total-display').textContent = 'R$ 0,00';
+    document.getElementById('nome-display').textContent = '—';
+    inp.value = ''; document.getElementById('campo-obs').value = '';
+    document.getElementById('modal').classList.remove('open');
+  } catch(e) { toast('Erro de conexão com o servidor Java.', 'erro'); }
+  finally { btn.disabled = false; btn.innerHTML = '✔ Confirmar'; }
+});
+
+init();
+</script>
+</body>
+</html>
