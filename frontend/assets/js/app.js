@@ -165,3 +165,25 @@ async function apiDelete(ep) {
   if (r.status === 401) { logout(); return; }
   return r.json();
 }
+
+// ── Microsserviço de agendamentos (porta 8081) ───────────────────────────────
+
+const API_AGENDA = 'http://localhost:8081/api';
+
+async function agendaFetch(metodo, ep, body) {
+  if (!checarLogin()) return;
+  var opcoes = { method: metodo, headers: { 'Authorization': 'Bearer ' + getToken() } };
+  if (body) {
+    opcoes.headers['Content-Type'] = 'application/json';
+    opcoes.body = JSON.stringify(body);
+  }
+  try {
+    var r = await fetch(API_AGENDA + ep, opcoes);
+    if (r.status === 401) { logout(); return; }
+    var txt = await r.text();
+    return txt ? JSON.parse(txt) : { erro: 'Erro ' + r.status };
+  } catch (e) {
+    // cai aqui se o agendamento-service não estiver rodando
+    return { erro: 'Serviço de agenda fora do ar. Ele está rodando na porta 8081?' };
+  }
+}

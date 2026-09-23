@@ -17,8 +17,8 @@ public class AuthFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // Libera: login, logout, arquivos estáticos (HTML/CSS/JS)
-        if (path.equals("/api/login") || path.equals("/api/logout")
+        // Libera: login, cadastro, logout, arquivos estáticos (HTML/CSS/JS)
+        if (path.equals("/api/login") || path.equals("/api/cadastro") || path.equals("/api/logout")
                 || !path.startsWith("/api/")) {
             chain.doFilter(request, response);
             return;

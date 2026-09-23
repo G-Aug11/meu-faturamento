@@ -47,12 +47,49 @@ public class LoginController {
         return ResponseEntity.ok(Map.of("token", token, "usuario", usuario.trim()));
     }
 
+    // Cria um usuário novo pela tela inicial e já devolve o token (entra direto)
+    @PostMapping("/cadastro")
+    public ResponseEntity<?> cadastro(@RequestBody Map<String, String> body) {
+        String usuario = body.get("usuario");
+        String senha   = body.get("senha");
+
+        if (usuario == null || usuario.isBlank() || senha == null || senha.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("erro", "Usuário e senha obrigatórios."));
+        }
+        usuario = usuario.trim();
+        if (usuario.length() < 3 || usuario.length() > 60) {
+            return ResponseEntity.badRequest().body(Map.of("erro", "O usuário deve ter entre 3 e 60 caracteres."));
+        }
+        if (senha.length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("erro", "A senha deve ter pelo menos 6 caracteres."));
+        }
+        if (usuarioRepository.findByUsuario(usuario).isPresent()) {
+            return ResponseEntity.badRequest().body(Map.of("erro", "Esse usuário já existe."));
+        }
+
+        Usuario novo = new Usuario();
+        novo.setUsuario(usuario);
+        novo.setSenha(passwordEncoder.encode(senha)); // salva o hash, nunca a senha pura
+        usuarioRepository.save(novo);
+
+        String token = UUID.randomUUID().toString();
+        tokens.put(token, usuario);
+        return ResponseEntity.ok(Map.of("mensagem", "Conta criada!", "token", token, "usuario", usuario));
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@RequestHeader(value = "Authorization", required = false) String auth) {
         if (auth != null && auth.startsWith("Bearer ")) {
             tokens.remove(auth.substring(7));
         }
         return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    // Outros serviços (ex: agendamento-service) chamam aqui pra saber se o token é válido.
+    // Se o token for inválido o AuthFilter já barra antes com 401, então se chegou aqui tá ok.
+    @GetMapping("/sessao")
+    public ResponseEntity<?> sessao(@RequestHeader("Authorization") String auth) {
+        return ResponseEntity.ok(Map.of("usuario", tokens.get(auth.substring(7))));
     }
 
     // Método estático para validar token (usado pelos outros controllers via filtro)

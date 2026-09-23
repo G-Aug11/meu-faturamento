@@ -23,6 +23,9 @@
     .btn-login:disabled { opacity:.5; cursor:not-allowed; }
     .login-error { background:#FFF0F2; border:1px solid #F5C2C9; border-radius:8px; color:var(--red); font-size:13px; padding:10px 14px; margin-top:16px; display:none; text-align:center; }
     .login-error.show { display:block; }
+    .login-trocar { text-align:center; margin-top:18px; font-size:13px; color:var(--text-light); }
+    .login-trocar a { color:var(--gold); font-weight:600; cursor:pointer; text-decoration:none; }
+    .login-trocar a:hover { text-decoration:underline; }
     .login-footer { text-align:center; margin-top:20px; font-size:11px; color:var(--text-light); letter-spacing:.5px; }
     @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap');
   </style>
@@ -45,39 +48,62 @@
         <label for="senha">Senha</label>
         <input type="password" id="senha" placeholder="Digite sua senha" autocomplete="current-password"/>
       </div>
+      <div class="form-group" id="grupo-confirmar" style="display:none;">
+        <label for="confirmar">Confirmar senha</label>
+        <input type="password" id="confirmar" placeholder="Digite a senha de novo" autocomplete="new-password"/>
+      </div>
 
       <button class="btn-login" id="btn-login">🔑 Entrar</button>
       <div class="login-error" id="login-error">❌ Usuário ou senha incorretos.</div>
+      <div class="login-trocar" id="login-trocar">Não tem conta? <a id="link-trocar">Criar conta</a></div>
     </div>
     <div class="login-footer">v3.0 Java · Rick Barber</div>
   </div>
 
   <script>
     const API = 'http://localhost:8080/api';
+    var modoCadastro = false;
 
-    async function fazerLogin() {
+    function trocarModo() {
+      modoCadastro = !modoCadastro;
+      document.getElementById('grupo-confirmar').style.display = modoCadastro ? '' : 'none';
+      document.getElementById('btn-login').textContent = modoCadastro ? '✅ Criar conta' : '🔑 Entrar';
+      document.getElementById('login-trocar').innerHTML = modoCadastro
+        ? 'Já tem conta? <a id="link-trocar">Entrar</a>'
+        : 'Não tem conta? <a id="link-trocar">Criar conta</a>';
+      document.getElementById('link-trocar').addEventListener('click', trocarModo);
+      document.getElementById('senha').autocomplete = modoCadastro ? 'new-password' : 'current-password';
+      document.getElementById('login-error').classList.remove('show');
+    }
+
+    function mostrarErro(msg) {
+      var erro = document.getElementById('login-error');
+      erro.textContent = msg;
+      erro.classList.add('show');
+    }
+
+    async function enviar() {
       var usuario = document.getElementById('usuario').value.trim();
       var senha = document.getElementById('senha').value;
       var btn = document.getElementById('btn-login');
-      var erro = document.getElementById('login-error');
 
-      if (!usuario || !senha) {
-        erro.textContent = '⚠️ Preencha usuário e senha.';
-        erro.classList.add('show');
-        return;
+      if (!usuario || !senha) { mostrarErro('⚠️ Preencha usuário e senha.'); return; }
+      if (modoCadastro) {
+        if (senha.length < 6) { mostrarErro('⚠️ A senha deve ter pelo menos 6 caracteres.'); return; }
+        if (senha !== document.getElementById('confirmar').value) { mostrarErro('⚠️ As senhas não são iguais.'); return; }
       }
 
+      var textoBotao = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Entrando…';
-      erro.classList.remove('show');
+      btn.textContent = modoCadastro ? 'Criando…' : 'Entrando…';
+      document.getElementById('login-error').classList.remove('show');
 
       try {
-        var r = await fetch(API + '/login', {
+        var r = await fetch(API + (modoCadastro ? '/cadastro' : '/login'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ usuario: usuario, senha: senha })
         });
-
         var data = await r.json();
 
         if (r.ok && data.token) {
@@ -85,24 +111,27 @@
           sessionStorage.setItem('auth_usuario', data.usuario || usuario);
           window.location.href = 'index.html';
         } else {
-          erro.textContent = '❌ ' + (data.erro || 'Usuário ou senha incorretos.');
-          erro.classList.add('show');
+          mostrarErro('❌ ' + (data.erro || 'Usuário ou senha incorretos.'));
         }
       } catch (e) {
-        erro.textContent = '❌ Servidor não conectado. Inicie o Spring Boot.';
-        erro.classList.add('show');
+        mostrarErro('❌ Servidor não conectado. Inicie o Spring Boot.');
       } finally {
         btn.disabled = false;
-        btn.textContent = '🔑 Entrar';
+        btn.textContent = textoBotao;
       }
     }
 
-    document.getElementById('btn-login').addEventListener('click', fazerLogin);
-    document.getElementById('senha').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') fazerLogin();
-    });
+    document.getElementById('btn-login').addEventListener('click', enviar);
+    document.getElementById('link-trocar').addEventListener('click', trocarModo);
     document.getElementById('usuario').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') document.getElementById('senha').focus();
+    });
+    document.getElementById('senha').addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter') return;
+      if (modoCadastro) document.getElementById('confirmar').focus(); else enviar();
+    });
+    document.getElementById('confirmar').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') enviar();
     });
 
     // Redirecionar se já estiver logado

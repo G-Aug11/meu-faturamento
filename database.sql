@@ -54,6 +54,4 @@ CREATE TABLE IF NOT EXISTS usuarios (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Usuário padrão: admin / 1234 (senha já em hash BCrypt — o sistema nunca guarda senha em texto puro)
--- IMPORTANTE: troque essa senha assim que possível.
-INSERT IGNORE INTO usuarios (usuario, senha) VALUES ('admin', '$2b$12$LpZ9YScQ4tL4ftMVikaHtu4p50Yy0Kcs7HFIz2DHcBHJ1t.g7qTK2');
+-- Usuários são criados pela própria tela inicial (botão "Criar conta").

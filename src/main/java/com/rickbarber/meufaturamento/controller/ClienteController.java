@@ -24,6 +24,14 @@ public class ClienteController {
         return repo.findAll();
     }
 
+    // Usado pelo agendamento-service pra conferir se o cliente existe
+    @GetMapping("/{id}")
+    public ResponseEntity<?> buscar(@PathVariable Long id) {
+        return repo.findById(id)
+            .<ResponseEntity<?>>map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping
     public ResponseEntity<?> criar(@RequestBody Map<String, Object> body) {
         String nome = (String) body.get("nome");

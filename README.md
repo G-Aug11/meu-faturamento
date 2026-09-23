@@ -19,3 +19,14 @@ Crie o banco de dados executando o database.sql
 Configure src/main/resources/application.properties com as credenciais do seu MySQL local
 Rode o projeto (via Eclipse/Spring Tools ou mvn spring-boot:run)
 Acesse http://localhost:8080
+
+## Microsserviço de agendamentos (`agendamento-service/`)
+
+Aplicação Spring Boot separada, que roda na porta **8081** com banco próprio (`agendamento_db`, criado sozinho na primeira execução).
+Ela não acessa o banco do meu-faturamento: clientes, serviços e a validação do login são consultados **via HTTP** na API do sistema principal.
+
+Pra rodar:
+1. Ligar o MySQL do XAMPP
+2. Rodar o `meu-faturamento` (porta 8080)
+3. No Eclipse: File > Import > Existing Maven Projects > pasta `agendamento-service` e rodar `AgendamentoServiceApplication`
+4. Acessar `http://localhost:8080/agendamentos.html`

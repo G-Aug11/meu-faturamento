@@ -22,6 +22,14 @@ public class ServicoController {
         return repo.findByAtivoTrueOrderByIdAsc();
     }
 
+    // Usado pelo agendamento-service pra pegar nome e preço do serviço
+    @GetMapping("/{id}")
+    public ResponseEntity<?> buscar(@PathVariable Long id) {
+        return repo.findById(id)
+            .<ResponseEntity<?>>map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping
     public ResponseEntity<?> criar(@RequestBody Map<String, Object> body) {
         String nome = (String) body.get("nome");

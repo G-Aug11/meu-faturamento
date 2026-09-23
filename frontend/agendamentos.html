@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Agenda · Meu Faturamento</title>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar__logo-wrap" title="Clique para trocar logo">
+      <div id="logo-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <span style="font-size:38px;">💈</span>
+        <span style="font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold-light);text-align:center;line-height:1.3;">Rick Barber<br>Original</span>
+      </div>
+      <div class="logo-overlay">📷<br>Trocar logo</div>
+      <input type="file" id="input-logo" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
+    </div>
+    <nav class="sidebar__nav">
+      <a href="index.html">    <span class="nav-icon">🏠</span><span class="nav-label">Atender</span></a>
+      <a href="agendamentos.html"><span class="nav-icon">📅</span><span class="nav-label">Agenda</span></a>
+      <a href="clientes.html"> <span class="nav-icon">👥</span><span class="nav-label">Clientes</span></a>
+      <a href="historico.html"><span class="nav-icon">📋</span><span class="nav-label">Histórico</span></a>
+      <a href="servicos.html"> <span class="nav-icon">✂️</span><span class="nav-label">Serviços</span></a>
+      <a href="dashboard.html"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+    </nav>
+    <button onclick="logout()" style="margin-top:auto;margin-bottom:8px;background:transparent;color:rgba(255,255,255,.35);font-family:Rajdhani,sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 12px;cursor:pointer;transition:all .2s;" onmouseover="this.style.color='var(--gold-light)'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🚪 Sair</button>
+    <div class="sidebar__version">v3.0 Java · Rick Barber</div>
+  </aside>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">📅 Agenda</h1>
+      <button class="btn btn-gold" id="btn-novo">+ Novo Agendamento</button>
+    </div>
+    <div class="filtros">
+      <div class="form-group">
+        <label>Dia</label>
+        <input type="date" id="filtro-data"/>
+      </div>
+      <button class="btn btn-secondary" id="btn-hoje">Hoje</button>
+    </div>
+    <div class="tabela-wrap">
+      <table>
+        <thead><tr><th>Horário</th><th>Cliente</th><th>Serviço</th><th>Status</th><th>Observação</th><th>Ações</th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-light);">Carregando…</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal-ag">
+  <div class="modal">
+    <div class="modal__title">Novo Agendamento</div>
+    <div class="form-group">
+      <label>Cliente *</label>
+      <select id="ag-cliente"><option value="">— Cliente avulso (sem cadastro) —</option></select>
+    </div>
+    <div class="form-group" id="grupo-avulso">
+      <label>Nome do cliente avulso *</label>
+      <input type="text" id="ag-avulso" placeholder="Nome"/>
+    </div>
+    <div class="form-group">
+      <label>Serviço *</label>
+      <select id="ag-servico"></select>
+    </div>
+    <div style="display:flex;gap:12px;">
+      <div class="form-group" style="flex:1;"><label>Dia *</label><input type="date" id="ag-data"/></div>
+      <div class="form-group" style="flex:1;"><label>Horário *</label><select id="ag-hora"></select></div>
+    </div>
+    <div class="form-group"><label>Observação</label><textarea id="ag-obs" rows="2" placeholder="Ex: vai trazer o filho junto…"></textarea></div>
+    <div style="display:flex;gap:12px;">
+      <button class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+      <button class="btn btn-gold" id="btn-salvar" style="flex:1;">💾 Agendar</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>if(!sessionStorage.getItem("auth_token")){window.location.href="login.html";}</script>
+<script>
+var STATUS = {
+  AGENDADO:  { txt:'🕒 Agendado',  cor:'#b8860b' },
+  CONCLUIDO: { txt:'✅ Concluído', cor:'#2e7d32' },
+  CANCELADO: { txt:'✖ Cancelado',  cor:'#999' }
+};
+
+function hojeISO() {
+  var d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
+
+// horários de 30 em 30 min, das 08:00 às 20:00
+function montarHorarios() {
+  var sel = document.getElementById('ag-hora'), html = '';
+  for (var h = 8; h <= 20; h++) {
+    ['00', '30'].forEach(function(m) {
+      if (h === 20 && m === '30') return;
+      var hh = (h < 10 ? '0' : '') + h + ':' + m;
+      html += '<option value="' + hh + '">' + hh + '</option>';
+    });
+  }
+  sel.innerHTML = html;
+}
+
+async function carregar() {
+  var data = document.getElementById('filtro-data').value;
+  var tbody = document.getElementById('tbody');
+  var lista = await agendaFetch('GET', '/agendamentos?data=' + data);
+  if (!Array.isArray(lista)) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-light);">' + ((lista && lista.erro) || 'Não foi possível carregar a agenda.') + '</td></tr>';
+    return;
+  }
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-light);">Nenhum agendamento nesse dia.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = lista.map(function(a) {
+    var st = STATUS[a.status] || { txt:a.status, cor:'#999' };
+    var acoes = a.status === 'AGENDADO'
+      ? '<button class="btn btn-secondary btn-sm" onclick="mudarStatus(' + a.id + ',\'CONCLUIDO\')">✅ Concluir</button> ' +
+        '<button class="btn btn-secondary btn-sm" onclick="mudarStatus(' + a.id + ',\'CANCELADO\')">✖ Cancelar</button> '
+      : '';
+    return '<tr>' +
+      '<td><strong>' + a.dataHora.slice(11, 16) + '</strong></td>' +
+      '<td>' + a.nomeCliente + '</td>' +
+      '<td>' + a.nomeServico + '</td>' +
+      '<td style="color:' + st.cor + ';font-weight:600;">' + st.txt + '</td>' +
+      '<td>' + (a.observacao || '—') + '</td>' +
+      '<td>' + acoes + '<button class="btn btn-danger btn-sm" onclick="excluir(' + a.id + ')">🗑</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+async function mudarStatus(id, status) {
+  var r = await agendaFetch('PUT', '/agendamentos/' + id + '/status', { status:status });
+  toast(r.mensagem || r.erro || 'Erro', r.erro ? 'erro' : 'sucesso');
+  carregar();
+}
+
+async function excluir(id) {
+  if (!confirm('Remover este agendamento?')) return;
+  var r = await agendaFetch('DELETE', '/agendamentos/' + id);
+  toast(r.mensagem || r.erro || 'Erro', r.erro ? 'erro' : 'sucesso');
+  carregar();
+}
+
+// clientes e serviços vêm do meu-faturamento (porta 8080)
+async function abrirModal() {
+  var clientes = await apiGet('/clientes');
+  var servicos = await apiGet('/servicos');
+  document.getElementById('ag-cliente').innerHTML =
+    '<option value="">— Cliente avulso (sem cadastro) —</option>' +
+    (clientes || []).map(function(c){ return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
+  document.getElementById('ag-servico').innerHTML =
+    (servicos || []).map(function(s){ return '<option value="' + s.id + '">' + s.icone + ' ' + s.nome + ' (' + formatBRL(s.preco) + ')</option>'; }).join('');
+  document.getElementById('ag-data').value = document.getElementById('filtro-data').value;
+  document.getElementById('grupo-avulso').style.display = '';
+  document.getElementById('modal-ag').classList.add('open');
+}
+
+function fecharModal() {
+  document.getElementById('modal-ag').classList.remove('open');
+  document.getElementById('ag-avulso').value = '';
+  document.getElementById('ag-obs').value = '';
+}
+
+document.getElementById('ag-cliente').addEventListener('change', function() {
+  document.getElementById('grupo-avulso').style.display = this.value ? 'none' : '';
+});
+
+document.getElementById('btn-salvar').addEventListener('click', async function() {
+  var body = {
+    clienteId:  document.getElementById('ag-cliente').value,
+    nomeAvulso: document.getElementById('ag-avulso').value.trim(),
+    servicoId:  document.getElementById('ag-servico').value,
+    dataHora:   document.getElementById('ag-data').value + 'T' + document.getElementById('ag-hora').value,
+    observacao: document.getElementById('ag-obs').value.trim()
+  };
+  var r = await agendaFetch('POST', '/agendamentos', body);
+  toast(r.mensagem || r.erro || 'Erro', r.erro ? 'erro' : 'sucesso');
+  if (!r.erro) {
+    document.getElementById('filtro-data').value = document.getElementById('ag-data').value;
+    fecharModal();
+    carregar();
+  }
+});
+
+document.getElementById('btn-novo').addEventListener('click', abrirModal);
+document.getElementById('btn-cancelar').addEventListener('click', fecharModal);
+document.getElementById('modal-ag').addEventListener('click', function(e){ if(e.target===e.currentTarget) fecharModal(); });
+document.getElementById('filtro-data').addEventListener('change', carregar);
+document.getElementById('btn-hoje').addEventListener('click', function() {
+  document.getElementById('filtro-data').value = hojeISO();
+  carregar();
+});
+
+montarHorarios();
+document.getElementById('filtro-data').value = hojeISO();
+carregar();
+</script>
+</body>
+</html>
